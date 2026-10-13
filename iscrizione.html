@@ -31,8 +31,8 @@
                         <div class="row g-3 align-items-center">
                             <div class="col-md-7">
                                 <label class="form-label fw-bold">Nome Evento Attuale</label>
-                                <!-- Mettiamo subito un valore di default sicuro -->
-                                <input type="text" id="regNomeEvento" class="form-control fw-bold fs-5 text-success bg-light" value="COPPA NATALE 2026">
+                                <!-- Valore predefinito impostato su COPPA NATALE 2026 -->
+                                <input type="text" id="regNomeEvento" class="form-control fw-bold fs-5 text-success bg-light" value="COPPA NATALE 2026" required>
                             </div>
                             <div class="col-md-5 text-center">
                                 <img id="locandinaPreview" class="preview-locandina mx-auto">
@@ -117,8 +117,12 @@
             databaseURL: "https://yoshukan-cup-2027-1a-giornata-default-rtdb.firebaseio.com/"
         };
         
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        let usaFirebase = false;
+        if (firebaseConfig.databaseURL !== "INSERISCI_QUI_IL_TUO_DATABASE_URL_FIREBASE") {
+            firebase.initializeApp(firebaseConfig);
+            var database = firebase.database();
+            usaFirebase = true;
+        }
 
         let logoBase64Temp = "";
         let fotoTecnicoBase64Temp = "";
@@ -127,19 +131,20 @@
         function inizializzaIscrizioneOnline() {
             aggiungiRigaAtletaForm();
             
-            // Tenta di leggere da Firebase, se disponibile
-            database.ref('dettagli_evento').on('value', (snapshot) => {
-                let ev = snapshot.val();
-                if (ev && ev.nomeEvento) {
-                    document.getElementById('regNomeEvento').value = ev.nomeEvento;
-                }
-                if (ev && ev.locandina) {
-                    locandinaEventoRemota = ev.locandina;
-                    let imgP = document.getElementById('locandinaPreview');
-                    imgP.src = ev.locandina;
-                    imgP.style.display = 'block';
-                }
-            });
+            if (usaFirebase) {
+                database.ref('dettagli_evento').on('value', (snapshot) => {
+                    let ev = snapshot.val();
+                    if (ev && ev.nomeEvento) {
+                        document.getElementById('regNomeEvento').value = ev.nomeEvento;
+                    }
+                    if (ev && ev.locandina) {
+                        locandinaEventoRemota = ev.locandina;
+                        let imgP = document.getElementById('locandinaPreview');
+                        imgP.src = ev.locandina;
+                        imgP.style.display = 'block';
+                    }
+                });
+            }
         }
 
         function convertiImmagine(input, previewId) {
@@ -262,16 +267,20 @@
                 dataRegistrazione: new Date().toLocaleString()
             };
 
-            database.ref('iscrizioni_pendenti/' + societaId).set({
-                societa: datiSocietaCompleti,
-                atleti: nouveauxAtleti = nuoviAtleti
-            }, (error) => {
-                if (error) {
-                    alert("Errore durante l'invio su Firebase: " + error.message);
-                } else {
-                    mostraSuccesso();
-                }
-            });
+            if (usaFirebase) {
+                database.ref('iscrizioni_pendenti/' + societaId).set({
+                    societa: datiSocietaCompleti,
+                    atleti: nuoviAtleti
+                }, (error) => {
+                    if (error) {
+                        alert("Errore durante l'invio su Firebase: " + error.message);
+                    } else {
+                        mostraSuccesso();
+                    }
+                });
+            } else {
+                alert("Errore di connessione a Firebase.");
+            }
         }
 
         function mostraSuccesso() {
