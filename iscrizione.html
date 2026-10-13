@@ -25,13 +25,14 @@
 
                     <div id="messaggioStato"></div>
 
-                    <!-- DATI DELL'EVENTO (Sincronizzati in automatico) -->
+                    <!-- DATI DELL'EVENTO -->
                     <div class="card p-3 mb-4 bg-white shadow-sm border-primary">
                         <h5 class="fw-bold text-primary mb-3">🏆 Evento Ufficiale</h5>
                         <div class="row g-3 align-items-center">
                             <div class="col-md-7">
                                 <label class="form-label fw-bold">Nome Evento Attuale</label>
-                                <input type="text" id="regNomeEvento" class="form-control fw-bold fs-5 text-success bg-light" readonly>
+                                <!-- Mettiamo subito un valore di default sicuro -->
+                                <input type="text" id="regNomeEvento" class="form-control fw-bold fs-5 text-success bg-light" value="COPPA NATALE 2026">
                             </div>
                             <div class="col-md-5 text-center">
                                 <img id="locandinaPreview" class="preview-locandina mx-auto">
@@ -126,13 +127,11 @@
         function inizializzaIscrizioneOnline() {
             aggiungiRigaAtletaForm();
             
-            // Prende in tempo reale il nome dell'evento e la locandina impostati dal gestore
+            // Tenta di leggere da Firebase, se disponibile
             database.ref('dettagli_evento').on('value', (snapshot) => {
                 let ev = snapshot.val();
                 if (ev && ev.nomeEvento) {
                     document.getElementById('regNomeEvento').value = ev.nomeEvento;
-                } else {
-                    document.getElementById('regNomeEvento').value = "Coppa Natale 2026";
                 }
                 if (ev && ev.locandina) {
                     locandinaEventoRemota = ev.locandina;
@@ -265,7 +264,7 @@
 
             database.ref('iscrizioni_pendenti/' + societaId).set({
                 societa: datiSocietaCompleti,
-                atleti: nuoviAtleti
+                atleti: nouveauxAtleti = nuoviAtleti
             }, (error) => {
                 if (error) {
                     alert("Errore durante l'invio su Firebase: " + error.message);
