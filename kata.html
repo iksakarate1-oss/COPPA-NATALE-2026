@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Tabellone Kata - Piattaforma Karate</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .bracket-round { min-width: 300px; margin-right: 20px; }
+        .match-card { border: 2px solid #dee2e6; border-radius: 8px; padding: 10px; margin-bottom: 15px; background: #fff; }
+        .logo-societa { width: 30px; height: 30px; object-fit: cover; border-radius: 50%; margin-right: 5px; }
+        .atleta-row { padding: 6px; border-radius: 4px; transition: background 0.2s; margin-bottom: 4px; cursor: move; }
+        .atleta-row.drag-over { border: 2px dashed #0d6efd; background-color: #e9ecef !important; }
+        .atleta-vincitore { background-color: #d1e7dd !important; font-weight: bold; }
+        .angolo-rosso { border-left: 5px solid #dc3545; background-color: #fdf2f2; }
+        .angolo-blu { border-left: 5px solid #0d6efd; background-color: #f0f4ff; }
+        .podio-card { border-radius: 8px; padding: 15px; color: #fff; text-align: center; }
+        .oro { background-color: #ffc107; color: #000; }
+        .argento { background-color: #6c757d; }
+        .bronzo { background-color: #cd7f32; }
+        .last-minute-box { border: 2px dashed #ffc107; background-color: #fff8e6; border-radius: 8px; padding: 10px; min-height: 50px; }
+
+        /* Stampa adattabile su un unico foglio orizzontale */
+        @media print {
+            @page {
+                size: landscape;
+                margin: 10mm;
+            }
+            body * {
+                visibility: hidden;
+            }
+            #infoTabelloneHeader, 
+            #infoTabelloneHeader *, 
+            #tabelloneContainer, 
+            #tabelloneContainer * {
+                visibility: visible;
+            }
+            .print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                zoom: 75%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container my-4">
+        <h1 class="text-center mb-4">🏆 Tabellone Kata per Categorie d'Età, Sesso & Cinture</h1>
+        
+        <div class="row text-center mb-4">
+            <div class="col"><a href="index.html" class="btn btn-outline-primary w-100">Home</a></div>
+            <div class="col"><a href="societa.html" class="btn btn-outline-primary w-100">Società & Tecnici</a></div>
+            <div class="col"><a href="atleti.html" class="btn btn-outline-primary w-100">Atleti</a></div>
+            <div class="col"><a href="KATA.html" class="btn btn-primary w-100">Kata</a></div>
+            <div class="col"><a href="KUMITE.html" class="btn btn-outline-primary w-100">Kumite</a></div>
+            <div class="col"><a href="stampa_pass.html" class="btn btn-outline-primary w-100">Stampa Pass</a></div>
+        </div>
+
+        <div class="card p-4 shadow-sm mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Classe d'Età</label>
+                    <select id="filtroEtaKata" class="form-select" onchange="inizializzaTorneoKata()">
+                        <option value="">-- Seleziona Età --</option>
+                        <option value="4-5">4/5 Anni</option>
+                        <option value="6-7">6/7 Anni</option>
+                        <option value="8-9">8/9 Anni</option>
+                        <option value="10-11">10/11 Anni</option>
+                        <option value="12-13">12/13 Anni (Esordienti)</option>
+                        <option value="14-15">14/15 Anni (Cadetti)</option>
+                        <option value="16-17">16/17 Anni (Juniores)</option>
+                        <option value="18-21">18/21 Anni (U21)</option>
+                        <option value="22-36">22/36 Anni (Seniores)</option>
+                        <option value="37-99">37+ Anni (Master)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Sesso</label>
+                    <select id="filtroSessoKata" class="form-select" onchange="inizializzaTorneoKata()">
+                        <option value="M">Maschile</option>
+                        <option value="F">Femminile</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Divisione Cinture</label>
+                    <select id="filtroCinturaKata" class="form-select" onchange="inizializzaTorneoKata()">
+                        <option value="">-- Tutte le Cinture --</option>
+                        <option value="bianca">Bianca</option>
+                        <option value="gialla">Gialla</option>
+                        <option value="arancio">Arancio</option>
+                        <option value="verde">Verde</option>
+                        <option value="blu">Blu</option>
+                        <option value="marrone/nera">Marrone / Nera (Scontro Diretto)</option>
+                    </select>
+                </div>
+                <div class="col-md-3 text-end">
+                    <button class="btn btn-warning me-2 mb-1" data-bs-toggle="modal" data-bs-target="#modalLastMinuteKata">⚡ Last-Minute</button>
+                    <button class="btn btn-success me-2 mb-1" onclick="salvaStatoKata()">💾 Salva</button>
+                    <button class="btn btn-secondary mb-1" onclick="window.print()">🖨️ Stampa</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 shadow-sm mb-4">
+            <h6 class="fw-bold mb-2">⚡ Storico Inserimenti Last-Minute:</h6>
+            <div class="d-flex flex-wrap gap-2 last-minute-box" id="containerLastMinuteKata">
+                <span class="text-muted small align-self-center">Nessun atleta aggiunto all'ultimo minuto.</span>
+            </div>
+        </div>
+
+        <!-- Contenitore stampabile che include intestazione e tabellone/lista -->
+        <div class="print-area">
+            <div id="infoTabelloneHeader" class="alert alert-secondary py-2 mb-3 fw-bold text-center" style="display:none;"></div>
+            <div class="row overflow-auto flex-nowrap py-3 mb-4" id="tabelloneContainer"></div>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+            <h3 class="text-center mb-4">🥇 Podio Ufficiale Kata</h3>
+            <div class="row text-center">
+                <div class="col-md-4 mb-3">
+                    <div class="podio-card argento shadow-sm">
+                        <h4>🥈 2° Posto (Argento)</h4>
+                        <div id="podioArgento" class="fs-5 mt-2">In attesa...</div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="podio-card oro shadow-sm">
+                        <h4>🥇 1° Posto (Oro)</h4>
+                        <div id="podioOro" class="fs-5 mt-2">In attesa...</div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="podio-card bronzo shadow-sm">
+                        <h4>🥉 3° Posto (Bronzo)</h4>
+                        <div id="podioBronzo" class="fs-5 mt-2">In attesa...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Inserimento Last Minute -->
+    <div class="modal fade" id="modalLastMinuteKata" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Aggiungi e Inserisci Atleta Last-Minute</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nome</label>
+                        <input type="text" id="lmNomeKata" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cognome</label>
+                        <input type="text" id="lmCognomeKata" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Società</label>
+                        <input type="text" id="lmSocietaKata" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-warning" onclick="aggiungiAtletaLastMinuteKata()">Inserisci</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function caricaLogoMap() {
+            let societaList = JSON.parse(localStorage.getItem('societaList')) || [];
+            let map = {};
+            societaList.forEach(s => map[s.nome] = s.logo);
+            return map;
+        }
+
+        let torneoData = { atletiList: [], colNames: [] };
+        let draggedElementId = null;
+        let lastMinuteCounter = 0;
+
+        function calcolaEta(dataNascita) {
+            if (!dataNascita) return 0;
+            return new Date().getFullYear() - new Date(dataNascita).getFullYear();
+        }
+
+        function rispecchiaFasciaEta(eta, fascia) {
+            if (!fascia) return true;
+            let [min, max] = fascia.split('-').map(Number);
+            return eta >= min && eta <= max;
+        }
+
+        function corrispondeCinturaKata(cinturaAtleta, cinturaSelezionata) {
+            if (!cinturaSelezionata) return true;
+            if (!cinturaAtleta) return true;
+            let c = cinturaAtleta.toLowerCase().trim();
+            let sel = cinturaSelezionata.toLowerCase().trim();
+
+            if (sel === 'bianca') return c.includes('bianc');
+            if (sel === 'gialla') return c.includes('giall');
+            if (sel === 'arancio') return c.includes('aranc');
+            if (sel === 'verde') return c.includes('verd');
+            if (sel === 'blu') return c.includes('blu');
+            if (sel === 'marrone/nera') return c.includes('marron') || c.includes('ner');
+            return true;
+        }
+
+        function eCinturaScontroDiretto(cinturaSelezionata) {
+            if (!cinturaSelezionata) return false;
+            let sel = cinturaSelezionata.toLowerCase().trim();
+            return sel === 'marrone/nera';
+        }
+
+        function inizializzaTorneoKata() {
+            let fasciaEta = document.getElementById('filtroEtaKata').value;
+            let filtroSesso = document.getElementById('filtroSessoKata').value;
+            let filtroCintura = document.getElementById('filtroCinturaKata').value;
+
+            let infoBox = document.getElementById('infoTabelloneHeader');
+            if (!fasciaEta) {
+                document.getElementById('tabelloneContainer').innerHTML = '<p class="text-muted text-center">Seleziona prima una fascia d\'età.</p>';
+                infoBox.style.display = 'none';
+                return;
+            }
+
+            let selectEtaEl = document.getElementById('filtroEtaKata');
+            let testoEta = selectEtaEl.options[selectEtaEl.selectedIndex].text;
+            let selectCinturaEl = document.getElementById('filtroCinturaKata');
+            let testoCintura = selectCinturaEl.value ? selectCinturaEl.options[selectCinturaEl.selectedIndex].text : "Tutte le Cinture";
+            
+            infoBox.style.display = 'block';
+            infoBox.innerHTML = `🏆 Categoria Kata: ${testoEta} | Sesso: ${filtroSesso === 'M' ? 'Maschile' : 'Femminile'} | Cintura: ${testoCintura}`;
+
+            let atleti = JSON.parse(localStorage.getItem('atleti')) || [];
+            let logoMap = caricaLogoMap();
+
+            let atletiKata = atleti.filter(a => {
+                let specOk = (a.specialita === 'Kata' || a.specialita === 'Entrambi');
+                let eta = calcolaEta(a.dataNascita);
+                let sessoOk = (a.sesso === filtroSesso);
+                let cinturaOk = corrispondeCinturaKata(a.cintura, filtroCintura);
+
+                return specOk && sessoOk && rispecchiaFasciaEta(eta, fasciaEta) && cinturaOk;
+            });
+
+            torneoData.atletiList = atletiKata;
+            
+            document.getElementById('podioOro').innerText = "In attesa...";
+            document.getElementById('podioArgento').innerText = "In attesa...";
+            document.getElementById('podioBronzo').innerText = "In attesa...";
+
+            if (eCinturaScontroDiretto(filtroCintura)) {
+                costruisciTabellone10Atleti('tabelloneContainer', atletiKata, logoMap, 'kata');
+            } else {
+                costruisciListaPunteggiKata('tabelloneContainer', atletiKata, logoMap);
+            }
+        }
+
+        function costruisciListaPunteggiKata(containerId, atleti, logoMap) {
+            let container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            if (atleti.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Nessun atleta trovato in questa categoria (Modalità Lista Punteggi).</p>';
+                return;
+            }
+
+            let wrapper = document.createElement('div');
+            wrapper.className = 'col-12';
+            
+            let html = `
+                <div class="card shadow-sm p-3">
+                    <h5 class="text-primary mb-3">📋 Lista Unica per Categoria (Punteggio Migliore Vince)</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width: 50px;" class="text-center">#</th>
+                                    <th>Atleta</th>
+                                    <th>Società</th>
+                                    <th>Cintura</th>
+                                    <th style="width: 150px;" class="text-center">Punteggio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            atleti.forEach((a, idx) => {
+                let logo = logoMap[a.societa] ? `<img src="${logoMap[a.societa]}" class="logo-societa">` : '';
+                html += `
+                    <tr id="atleta_punti_${idx}">
+                        <td class="text-center fw-bold">${idx + 1}</td>
+                        <td>${logo}<strong>${a.nome} ${a.cognome}</strong></td>
+                        <td>${a.societa || 'N/D'}</td>
+                        <td>${a.cintura || 'N/D'}</td>
+                        <td class="text-center">
+                            <input type="number" step="0.1" class="form-control form-control-sm text-center input-punteggio-kata" data-index="${idx}" placeholder="Pt" onchange="aggiornaPodioPuntiKata()">
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            wrapper.innerHTML = html;
+            container.appendChild(wrapper);
+        }
+
+        function aggiornaPodioPuntiKata() {
+            let inputs = document.querySelectorAll('.input-punteggio-kata');
+            let risultati = [];
+
+            inputs.forEach(inp => {
+                let idx = inp.getAttribute('data-index');
+                let val = parseFloat(inp.value);
+                if (!isNaN(val)) {
+                    risultati.push({ atleta: torneoData.atletiList[idx], punti: val });
+                }
+            });
+
+            risultati.sort((a, b) => b.punti - a.punti);
+
+            document.getElementById('podioOro').innerText = risultati[0] ? `${risultati[0].atleta.nome} ${risultati[0].atleta.cognome} (${risultati[0].punti} pt)` : "In attesa...";
+            document.getElementById('podioArgento').innerText = risultati[1] ? `${risultati[1].atleta.nome} ${risultati[1].atleta.cognome} (${risultati[1].punti} pt)` : "In attesa...";
+            document.getElementById('podioBronzo').innerText = risultati[2] ? `${risultati[2].atleta.nome} ${risultati[2].atleta.cognome} (${risultati[2].punti} pt)` : "In attesa...";
+        }
+
+        function abilitaDragAndDrop(elem) {
+            elem.setAttribute('draggable', 'true');
+            elem.addEventListener('dragstart', handleDragStart);
+            elem.addEventListener('dragover', handleDragOver);
+            elem.addEventListener('dragleave', handleDragLeave);
+            elem.addEventListener('drop', handleDrop);
+        }
+
+        function handleDragStart(e) {
+            draggedElementId = this.id;
+            e.dataTransfer.setData('text/plain', this.id);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            if (!draggedElementId || draggedElementId === this.id) return;
+
+            let sourceElem = document.getElementById(draggedElementId);
+            let targetElem = this;
+
+            if (sourceElem && targetElem) {
+                let tempHTML = sourceElem.innerHTML;
+                sourceElem.innerHTML = targetElem.innerHTML;
+                targetElem.innerHTML = tempHTML;
+            }
+        }
+
+        function aggiungiAtletaLastMinuteKata() {
+            let nome = document.getElementById('lmNomeKata').value.trim();
+            let cognome = document.getElementById('lmCognomeKata').value.trim();
+            let societa = document.getElementById('lmSocietaKata').value.trim();
+
+            if (!nome || !cognome) {
+                alert("Nome e Cognome sono obbligatori!");
+                return;
+            }
+
+            let logoMap = caricaLogoMap();
+            let logo = logoMap[societa] ? `<img src="${logoMap[societa]}" class="logo-societa">` : '';
+
+            let filtroCintura = document.getElementById('filtroCinturaKata').value;
+
+            if (!eCinturaScontroDiretto(filtroCintura)) {
+                let tbody = document.querySelector('#tabelloneContainer tbody');
+                if (tbody) {
+                    let newRow = document.createElement('tr');
+                    let newIdx = torneoData.atletiList.length;
+                    torneoData.atletiList.push({ nome, cognome, societa, cintura: filtroCintura });
+                    
+                    newRow.innerHTML = `
+                        <td class="text-center fw-bold">New</td>
+                        <td>${logo}<strong>${nome} ${cognome}</strong></td>
+                        <td>${societa || 'N/D'}</td>
+                        <td>${filtroCintura || 'N/D'}</td>
+                        <td class="text-center">
+                            <input type="number" step="0.1" class="form-control form-control-sm text-center input-punteggio-kata" data-index="${newIdx}" placeholder="Pt" onchange="aggiornaPodioPuntiKata()">
+                        </td>
+                    `;
+                    tbody.appendChild(newRow);
+                }
+            } else {
+                let inserito = false;
+                for (let mIdx = 0; mIdx < 8; mIdx++) {
+                    let matchDiv = document.getElementById(`kata_m_0_${mIdx}`);
+                    if (matchDiv && matchDiv.innerText.includes('Turno di Riposo')) {
+                        matchDiv.className = "match-card shadow-sm";
+                        matchDiv.innerHTML = `
+                            <div class="small text-muted mb-1 fw-bold">Match ${mIdx + 1} (Last Minute)</div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="kata_r_0_${mIdx}_0">
+                                <span><span class="badge bg-danger me-1">ROSSO</span><span class="badge bg-warning text-dark me-1">NEW</span>${logo}<strong>${nome} ${cognome}</strong></span>
+                                <div>
+                                    <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                    <button class="btn btn-sm btn-outline-success py-0" onclick="avanza('kata', 0, ${mIdx}, 0, '${nome}', '${cognome}', '${societa}')">Vince ➔</button>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="kata_r_0_${mIdx}_1">
+                                <span><span class="badge bg-primary me-1">BLU</span><em>In attesa avversario...</em></span>
+                            </div>
+                        `;
+                        inserito = true;
+                        break;
+                    }
+                }
+            }
+
+            let container = document.getElementById('containerLastMinuteKata');
+            if (container.querySelector('span.text-muted')) {
+                container.innerHTML = '';
+            }
+
+            lastMinuteCounter++;
+            let lmId = `lm_kata_${lastMinuteCounter}`;
+            let elem = document.createElement('div');
+            elem.className = 'd-flex justify-content-between align-items-center atleta-row angolo-rosso border rounded px-2 py-1 bg-white shadow-sm';
+            elem.id = lmId;
+            elem.innerHTML = `<span><span class="badge bg-warning text-dark me-1">NEW</span>${logo}<strong>${nome} ${cognome}</strong> (${societa || 'N/D'})</span>`;
+            container.appendChild(elem);
+
+            document.querySelectorAll('.atleta-row').forEach(abilitaDragAndDrop);
+
+            document.getElementById('lmNomeKata').value = '';
+            document.getElementById('lmCognomeKata').value = '';
+            document.getElementById('lmSocietaKata').value = '';
+
+            let modal = bootstrap.Modal.getInstance(document.getElementById('modalLastMinuteKata'));
+            modal.hide();
+
+            alert(`Atleta ${nome} ${cognome} inserito correttamente!`);
+        }
+
+        function costruisciTabellone10Atleti(containerId, atleti, logoMap, prefix) {
+            let container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            let count = atleti.length;
+            if (count === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Nessun atleta trovato in questa categoria (Scontro Diretto Marroni/Nere).</p>';
+                return;
+            }
+
+            let rounds = [
+                { name: "Round of 16", matches: 8 },
+                { name: "Quarterfinal", matches: 4 },
+                { name: "Semifinal", matches: 2 },
+                { name: "Final", matches: 1 }
+            ];
+            torneoData.colNames = rounds;
+
+            rounds.forEach((r, rIdx) => {
+                let col = document.createElement('div');
+                col.className = 'col bracket-round';
+                col.innerHTML = `<h5 class="text-center bg-primary text-white p-2 rounded">${r.name}</h5><div id="${prefix}_round_${rIdx}"></div>`;
+                container.appendChild(col);
+            });
+
+            let r0Container = document.getElementById(`${prefix}_round_0`);
+            let html0 = '';
+
+            for (let mIdx = 0; mIdx < 8; mIdx++) {
+                let atletaA = null;
+                let atletaB = null;
+                let numPosA = "";
+                let numPosB = "";
+
+                if (mIdx === 0) {
+                    atletaA = atleti[6] || null;
+                    atletaB = atleti[7] || null;
+                    numPosA = "8";
+                    numPosB = "9";
+                } else if (mIdx === 1) {
+                    atletaA = atleti[8] || null;
+                    atletaB = atleti[9] || null;
+                    numPosA = "7";
+                    numPosB = "10";
+                }
+
+                if (atletaA && atletaB) {
+                    let logoA = logoMap[atletaA.societa] ? `<img src="${logoMap[atletaA.societa]}" class="logo-societa">` : '';
+                    let logoB = logoMap[atletaB.societa] ? `<img src="${logoMap[atletaB.societa]}" class="logo-societa">` : '';
+                    
+                    html0 += `
+                        <div class="match-card shadow-sm" id="${prefix}_m_0_${mIdx}">
+                            <div class="small text-muted mb-1 fw-bold">Match ${mIdx + 1}</div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="${prefix}_r_0_${mIdx}_0">
+                                <span><span class="badge bg-danger me-1">ROSSO</span><span class="badge bg-secondary me-1">${numPosA}</span>${logoA}<strong>${atletaA.nome} ${atletaA.cognome}</strong></span>
+                                <div>
+                                    <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                    <button class="btn btn-sm btn-outline-success py-0" onclick="avanza('${prefix}', 0, ${mIdx}, 0, '${atletaA.nome}', '${atletaA.cognome}', '${atletaA.societa}')">Vince ➔</button>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="${prefix}_r_0_${mIdx}_1">
+                                <span><span class="badge bg-primary me-1">BLU</span><span class="badge bg-secondary me-1">${numPosB}</span>${logoB}<strong>${atletaB.nome} ${atletaB.cognome}</strong></span>
+                                <div>
+                                    <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                    <button class="btn btn-sm btn-outline-success py-0" onclick="avanza('${prefix}', 0, ${mIdx}, 1, '${atletaB.nome}', '${atletaB.cognome}', '${atletaB.societa}')">Vince ➔</button>
+                                </div>
+                            </div>
+                        </div>`;
+                } else {
+                    html0 += `
+                        <div class="match-card shadow-sm text-muted bg-light opacity-50" id="${prefix}_m_0_${mIdx}">
+                            <div class="small mb-1">${mIdx + 1} Round of 16 (Bye)</div>
+                            <div class="small">--- Turno di Riposo ---</div>
+                        </div>`;
+                }
+            }
+            r0Container.innerHTML = html0;
+
+            let r1Container = document.getElementById(`${prefix}_round_1`);
+            let htmlQ = '';
+            
+            let qConfig = [
+                { qNum: 1, posA: "1", atletaA: atleti[0], posB: "W1", labelB: "(W1)" },
+                { qNum: 2, posA: "4", atletaA: atleti[1], posB: "5", atletaB: atleti[2] },
+                { qNum: 3, posA: "2", atletaA: atleti[3], posB: "W2", labelB: "(W2)" },
+                { qNum: 4, posA: "3", atletaA: atleti[4], posB: "6", atletaB: atleti[5] }
+            ];
+
+            qConfig.forEach((q, qIdx) => {
+                let logoA = q.atletaA && logoMap[q.atletaA.societa] ? `<img src="${logoMap[q.atletaA.societa]}" class="logo-societa">` : '';
+                let nomeA = q.atletaA ? `${q.atletaA.nome} ${q.atletaA.cognome}` : `Atleta ${q.posA}`;
+                
+                let logoB = q.atletaB && logoMap[q.atletaB.societa] ? `<img src="${logoMap[q.atletaB.societa]}" class="logo-societa">` : '';
+                let nomeB = q.atletaB ? `${q.atletaB.nome} ${q.atletaB.cognome}` : q.labelB;
+
+                let btnB = q.atletaB ? `<button class="btn btn-sm btn-outline-success py-0" onclick="avanza('${prefix}', 1, ${qIdx}, 1, '${q.atletaB.nome}', '${q.atletaB.cognome}', '${q.atletaB.societa}')">Vince ➔</button>` : '';
+
+                htmlQ += `
+                    <div class="match-card shadow-sm" id="${prefix}_m_1_${qIdx}">
+                        <div class="small text-muted mb-1 fw-bold">Quarto ${q.qNum}</div>
+                        <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="${prefix}_r_1_${qIdx}_0">
+                            <span><span class="badge bg-danger me-1">ROSSO</span><span class="badge bg-primary me-1">${q.posA}</span>${logoA}<strong>${nomeA}</strong></span>
+                            ${q.atletaA ? `<button class="btn btn-sm btn-outline-success py-0" onclick="avanza('${prefix}', 1, ${qIdx}, 0, '${q.atletaA.nome}', '${q.atletaA.cognome}', '${q.atletaA.societa}')">Vince ➔</button>` : ''}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="${prefix}_r_1_${qIdx}_1">
+                            <span><span class="badge bg-primary me-1">BLU</span><span class="badge bg-primary me-1">${q.posB}</span>${logoB}<strong>${nomeB}</strong></span>
+                            <div>
+                                <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                ${btnB}
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            r1Container.innerHTML = htmlQ;
+
+            ['Semifinal', 'Final'].forEach((roundName, rIdxOffset) => {
+                let actualRIdx = rIdxOffset + 2;
+                let ctn = document.getElementById(`${prefix}_round_${actualRIdx}`);
+                let matchesCount = actualRIdx === 2 ? 2 : 1;
+                let htmlR = '';
+                for (let m = 0; m < matchesCount; m++) {
+                    htmlR += `
+                        <div class="match-card shadow-sm" id="${prefix}_m_${actualRIdx}_${m}">
+                            <div class="small text-muted mb-1 fw-bold">${roundName} ${m+1}</div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="${prefix}_r_${actualRIdx}_${m}_0">
+                                <span><span class="badge bg-danger me-1">ROSSO</span><strong>In attesa...</strong></span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="${prefix}_r_${actualRIdx}_${m}_1">
+                                <span><span class="badge bg-primary me-1">BLU</span><strong>In attesa...</strong></span>
+                            </div>
+                        </div>`;
+                }
+                ctn.innerHTML = htmlR;
+            });
+
+            document.querySelectorAll('.atleta-row').forEach(abilitaDragAndDrop);
+        }
+
+        function avanza(prefix, roundIdx, matchIdx, slotIdx, nome, cognome, societa) {
+            document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_0`).classList.remove('atleta-vincitore');
+            document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_1`).classList.remove('atleta-vincitore');
+            document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_${slotIdx}`).classList.add('atleta-vincitore');
+
+            let nextRoundIdx = roundIdx + 1;
+            
+            if (roundIdx === 0) {
+                let targetQIdx = matchIdx === 0 ? 0 : 2;
+                let targetSlot = 1;
+                let slotDiv = document.getElementById(`${prefix}_r_1_${targetQIdx}_${targetSlot}`);
+                let logoMap = caricaLogoMap();
+                let logo = logoMap[societa] ? `<img src="${logoMap[societa]}" class="logo-societa">` : '';
+                if (slotDiv) {
+                    slotDiv.innerHTML = `
+                        <span><span class="badge bg-primary me-1">BLU</span>${logo}<strong>${nome} ${cognome}</strong></span>
+                        <div>
+                            <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                            <button class="btn btn-sm btn-outline-success py-0" onclick="avanza('${prefix}', 1, ${targetQIdx}, 1, '${nome}', '${cognome}', '${societa}')">Vince ➔</button>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            if (nextRoundIdx >= torneoData.colNames.length) {
+                document.getElementById('podioOro').innerText = `${nome} ${cognome}`;
+                let perdenteSlot = slotIdx === 0 ? 1 : 0;
+                let elemPerdente = document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_${perdenteSlot}`);
+                document.getElementById('podioArgento').innerText = elemPerdente ? elemPerdente.innerText.replace('ROSSO', '').replace('BLU', '').replace('Vince ➔', '').trim() : '';
+                alert(`🏆 ${nome} ${cognome} ha vinto il torneo!`);
+                return;
+            }
+
+            let nextMatchIdx = Math.floor(matchIdx / 2);
+            let nextSlotIdx = matchIdx % 2;
+            let angoloName = nextSlotIdx === 0 ? '<span class="badge bg-danger me-1">ROSSO</span>' : '<span class="badge bg-primary me-1">BLU</span>';
+            let logoMap = caricaLogoMap();
+            let logo = logoMap[societa] ? `<img src="${logoMap[societa]}" class="logo-societa">` : '';
+
+            let slotDiv = document.getElementById(`${prefix}_r_${nextRoundIdx}_${nextMatchIdx}_${nextSlotIdx}`);
+            if (slotDiv) {
+                slotDiv.innerHTML = `
+                    <span>${angoloName}${logo}<strong>${nome} ${cognome}</strong></span>
+                    <div>
+                        <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                        <button class="btn btn-sm btn-outline-success py-0" onclick="avanza('${prefix}', ${nextRoundIdx}, ${nextMatchIdx}, ${nextSlotIdx}, '${nome}', '${cognome}', '${societa}')">Vince ➔</button>
+                    </div>
+                `;
+            }
+        }
+
+        function salvaStatoKata() {
+            localStorage.setItem('tabelloneKata_salvato', JSON.stringify(document.getElementById('tabelloneContainer').innerHTML));
+            alert("Salvato correttamente!");
+        }
+    </script>
+</body>
+</html>
