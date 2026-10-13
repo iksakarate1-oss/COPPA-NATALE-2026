@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestione Atleti - Piattaforma Karate</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .logo-societa { width: 35px; height: 35px; object-fit: cover; border-radius: 50%; }
+        .foto-atleta-tb { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; border: 1px solid #dee2e6; }
+    </style>
+</head>
+<body class="bg-light" onload="caricaDatiAtleti()">
+    <div class="container my-4">
+        
+        <h1 class="text-center mb-4">🥋 Gestione Atleti</h1>
+        
+        <div class="row text-center mb-4 g-2">
+            <div class="col"><a href="index.html" class="btn btn-outline-primary w-100">Home</a></div>
+            <div class="col"><a href="societa.html" class="btn btn-outline-primary w-100">Società & Tecnici</a></div>
+            <div class="col"><a href="atleti.html" class="btn btn-primary w-100">Atleti</a></div>
+            <div class="col"><a href="KATA.html" class="btn btn-outline-primary w-100">Kata</a></div>
+            <div class="col"><a href="KUMITE.html" class="btn btn-outline-primary w-100">Kumite</a></div>
+            <div class="col"><a href="stampa_pass.html" class="btn btn-outline-primary w-100">Stampa Pass</a></div>
+        </div>
+
+        <!-- Form Inserimento / Modifica Atleta -->
+        <div class="card shadow-sm p-4 mb-4">
+            <h3 id="formTitle" class="mb-3 text-primary">➕ Aggiungi Nuovo Atleta</h3>
+            <input type="hidden" id="editIndex" value="-1">
+            
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Nome</label>
+                    <input type="text" id="nomeAtleta" class="form-control" placeholder="Nome">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Cognome</label>
+                    <input type="text" id="cognomeAtleta" class="form-control" placeholder="Cognome">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Data di Nascita</label>
+                    <input type="date" id="dataNascitaAtleta" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Sesso</label>
+                    <select id="sessoAtleta" class="form-select">
+                        <option value="M">Maschile</option>
+                        <option value="F">Femminile</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Società</label>
+                    <select id="societaAtleta" class="form-select">
+                        <option value="">-- Seleziona Società --</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Cintura</label>
+                    <select id="cinturaAtleta" class="form-select">
+                        <option value="Bianca">Bianca</option>
+                        <option value="Gialla">Gialla</option>
+                        <option value="Arancione">Arancione</option>
+                        <option value="Verde">Verde</option>
+                        <option value="Blu">Blu</option>
+                        <option value="Marrone">Marrone</option>
+                        <option value="Nera">Nera</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Specialità</label>
+                    <select id="specialitaAtleta" class="form-select">
+                        <option value="Kata">Kata</option>
+                        <option value="Kumite">Kumite</option>
+                        <option value="Entrambi">Entrambi</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Peso (Kg) - Per Kumite</label>
+                    <input type="number" id="pesoAtleta" class="form-control" placeholder="Es. 55">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Foto Tessera (Facoltativa)</label>
+                    <input type="file" id="fotoAtletaFile" class="form-control" accept="image/*">
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button class="btn btn-success w-100 me-2" onclick="salvaAtleta()">💾 Salva Atleta</button>
+                    <button class="btn btn-secondary w-100" onclick="resetFormAtleta()">Annulla</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabella Elenco Atleti -->
+        <div class="card shadow-sm p-4">
+            <h3 class="mb-3">📋 Elenco Atleti Registrati</h3>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Foto</th>
+                            <th>Nominativo</th>
+                            <th>Età</th>
+                            <th>Sesso</th>
+                            <th>Società</th>
+                            <th>Cintura</th>
+                            <th>Specialità</th>
+                            <th>Peso</th>
+                            <th class="text-center">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabellaAtletiBody">
+                        <tr><td colspan="9" class="text-center text-muted">Nessun atleta inserito.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let fotoBase64Temp = "";
+
+        // Gestione conversione foto in Base64 all'inserimento
+        document.getElementById('fotoAtletaFile').addEventListener('change', function(e) {
+            let file = e.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(uploadEvent) {
+                fotoBase64Temp = uploadEvent.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function calcolaEta(dataNascita) {
+            if (!dataNascita) return 0;
+            return new Date().getFullYear() - new Date(dataNascita).getFullYear();
+        }
+
+        function caricaDatiAtleti() {
+            // Carica select società
+            let societaList = JSON.parse(localStorage.getItem('societaList')) || [];
+            let selectSoc = document.getElementById('societaAtleta');
+            selectSoc.innerHTML = '<option value="">-- Seleziona Società --</option>';
+            societaList.forEach(s => {
+                selectSoc.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
+            });
+
+            // Carica tabella atleti
+            let atletiList = JSON.parse(localStorage.getItem('atleti')) || [];
+            let tbody = document.getElementById('tabellaAtletiBody');
+            
+            if (atletiList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-3">Nessun atleta inserito.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            atletiList.forEach((a, index) => {
+                let eta = calcolaEta(a.dataNascita);
+                let imgTag = a.foto ? `<img src="${a.foto}" class="foto-atleta-tb">` : `<span class="text-muted small">Nessuna</span>`;
+                
+                html += `
+                    <tr>
+                        <td>${imgTag}</td>
+                        <td><strong>${a.nome} ${a.cognome}</strong></td>
+                        <td>${eta} anni</td>
+                        <td>${a.sesso || '-'}</td>
+                        <td>${a.societa || '-'}</td>
+                        <td><span class="badge bg-secondary">${a.cintura || 'Bianca'}</span></td>
+                        <td>${a.specialita || '-'}</td>
+                        <td>${a.peso ? a.peso + ' Kg' : '-'}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-warning me-1" onclick="modificaAtleta(${index})">✏️ Modifica</button>
+                            <button class="btn btn-sm btn-danger" onclick="eliminaAtleta(${index})">🗑️ Elimina</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function salvaAtleta() {
+            let nome = document.getElementById('nomeAtleta').value.trim();
+            let cognome = document.getElementById('cognomeAtleta').value.trim();
+            let dataNascita = document.getElementById('dataNascitaAtleta').value;
+            let sesso = document.getElementById('sessoAtleta').value;
+            let societa = document.getElementById('societaAtleta').value;
+            let cintura = document.getElementById('cinturaAtleta').value;
+            let specialita = document.getElementById('specialitaAtleta').value;
+            let peso = document.getElementById('pesoAtleta').value;
+            let editIndex = parseInt(document.getElementById('editIndex').value);
+
+            if (!nome || !cognome || !societa) {
+                alert("Compila almeno Nome, Cognome e Società!");
+                return;
+            }
+
+            let atletiList = JSON.parse(localStorage.getItem('atleti')) || [];
+
+            let atletaObj = {
+                nome,
+                cognome,
+                dataNascita,
+                sesso,
+                societa,
+                cintura,
+                specialita,
+                peso,
+                foto: fotoBase64Temp || (editIndex >= 0 ? atletiList[editIndex].foto : "")
+            };
+
+            if (editIndex >= 0) {
+                atletiList[editIndex] = atletaObj;
+            } else {
+                atletiList.push(atletaObj);
+            }
+
+            localStorage.setItem('atleti', JSON.stringify(atletiList));
+            resetFormAtleta();
+            caricaDatiAtleti();
+        }
+
+        function modificaAtleta(index) {
+            let atletiList = JSON.parse(localStorage.getItem('atleti')) || [];
+            let a = atletiList[index];
+            if (!a) return;
+
+            document.getElementById('nomeAtleta').value = a.nome;
+            document.getElementById('cognomeAtleta').value = a.cognome;
+            document.getElementById('dataNascitaAtleta').value = a.dataNascita || '';
+            document.getElementById('sessoAtleta').value = a.sesso || 'M';
+            document.getElementById('societaAtleta').value = a.societa || '';
+            document.getElementById('cinturaAtleta').value = a.cintura || 'Bianca';
+            document.getElementById('specialitaAtleta').value = a.specialita || 'Kata';
+            document.getElementById('pesoAtleta').value = a.peso || '';
+            document.getElementById('editIndex').value = index;
+            document.getElementById('formTitle').innerText = "✏️ Modifica Atleta";
+            fotoBase64Temp = a.foto || "";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function eliminaAtleta(index) {
+            if (confirm("Sei sicuro di voler eliminare questo atleta?")) {
+                let atletiList = JSON.parse(localStorage.getItem('atleti')) || [];
+                atletiList.splice(index, 1);
+                localStorage.setItem('atleti', JSON.stringify(atletiList));
+                caricaDatiAtleti();
+            }
+        }
+
+        function resetFormAtleta() {
+            document.getElementById('nomeAtleta').value = '';
+            document.getElementById('cognomeAtleta').value = '';
+            document.getElementById('dataNascitaAtleta').value = '';
+            document.getElementById('pesoAtleta').value = '';
+            document.getElementById('fotoAtletaFile').value = '';
+            document.getElementById('editIndex').value = '-1';
+            document.getElementById('formTitle').innerText = "➕ Aggiungi Nuovo Atleta";
+            fotoBase64Temp = "";
+        }
+    </script>
+</body>
+</html>
