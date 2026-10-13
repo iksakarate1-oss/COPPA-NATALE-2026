@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Tabellone Kumite - Piattaforma Karate</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .bracket-round { min-width: 300px; margin-right: 20px; }
+        .match-card { border: 2px solid #dee2e6; border-radius: 8px; padding: 10px; margin-bottom: 15px; background: #fff; }
+        .logo-societa { width: 30px; height: 30px; object-fit: cover; border-radius: 50%; margin-right: 5px; }
+        .atleta-row { padding: 6px; border-radius: 4px; transition: background 0.2s; margin-bottom: 4px; cursor: move; }
+        .atleta-row.drag-over { border: 2px dashed #dc3545; background-color: #e9ecef !important; }
+        .atleta-vincitore { background-color: #d1e7dd !important; font-weight: bold; }
+        .angolo-rosso { border-left: 5px solid #dc3545; background-color: #fdf2f2; }
+        .angolo-blu { border-left: 5px solid #0d6efd; background-color: #f0f4ff; }
+        .podio-card { border-radius: 8px; padding: 15px; color: #fff; text-align: center; }
+        .oro { background-color: #ffc107; color: #000; }
+        .argento { background-color: #6c757d; }
+        .bronzo { background-color: #cd7f32; }
+        .last-minute-box { border: 2px dashed #ffc107; background-color: #fff8e6; border-radius: 8px; padding: 10px; min-height: 50px; }
+
+        /* Stampa adattabile su un unico foglio orizzontale */
+        @media print {
+            @page {
+                size: landscape;
+                margin: 10mm;
+            }
+            body * {
+                visibility: hidden;
+            }
+            #infoTabelloneHeader, 
+            #infoTabelloneHeader *, 
+            #tabelloneKumiteContainer, 
+            #tabelloneKumiteContainer * {
+                visibility: visible;
+            }
+            .print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                zoom: 75%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container my-4">
+        <h1 class="text-center mb-4">⚔️ Tabellone Kumite per Categorie di Peso, Età & Cintura</h1>
+        
+        <div class="row text-center mb-4">
+            <div class="col"><a href="index.html" class="btn btn-outline-primary w-100">Home</a></div>
+            <div class="col"><a href="societa.html" class="btn btn-outline-primary w-100">Società & Tecnici</a></div>
+            <div class="col"><a href="atleti.html" class="btn btn-outline-primary w-100">Atleti</a></div>
+            <div class="col"><a href="KATA.html" class="btn btn-outline-primary w-100">Kata</a></div>
+            <div class="col"><a href="KUMITE.html" class="btn btn-primary w-100">Kumite</a></div>
+            <div class="col"><a href="stampa_pass.html" class="btn btn-outline-primary w-100">Stampa Pass</a></div>
+        </div>
+
+        <div class="card p-4 shadow-sm mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Classe d'Età</label>
+                    <select id="filtroEtaKumite" class="form-select" onchange="inizializzaTorneoKumite()">
+                        <option value="">-- Seleziona Età --</option>
+                        <option value="4-5">4/5 Anni</option>
+                        <option value="6-7">6/7 Anni</option>
+                        <option value="8-9">8/9 Anni</option>
+                        <option value="10-11">10/11 Anni</option>
+                        <option value="12-13">12/13 Anni (Esordienti)</option>
+                        <option value="14-15">14/15 Anni (Cadetti)</option>
+                        <option value="16-17">16/17 Anni (Juniores)</option>
+                        <option value="18-36">18/36 Anni (Seniores)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Sesso</label>
+                    <select id="filtroSessoKumite" class="form-select" onchange="inizializzaTorneoKumite()">
+                        <option value="M">Maschile</option>
+                        <option value="F">Femminile</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Categoria di Peso</label>
+                    <select id="filtroPesoKumite" class="form-select" onchange="inizializzaTorneoKumite()">
+                        <option value="40">Fino a 40 Kg</option>
+                        <option value="50">Fino a 50 Kg</option>
+                        <option value="60">Fino a 60 Kg</option>
+                        <option value="70">Fino a 70 Kg</option>
+                        <option value="piu70">+70 Kg</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Divisione Cinture</label>
+                    <select id="filtroCinturaKumite" class="form-select" onchange="inizializzaTorneoKumite()">
+                        <option value="">-- Tutte le Cinture --</option>
+                        <option value="bianche">Bianche</option>
+                        <option value="gialla/arancio">Gialla / Arancio</option>
+                        <option value="verde/blu">Verde / Blu</option>
+                        <option value="marrone/nera">Marrone / Nera</option>
+                    </select>
+                </div>
+                <div class="col-md-12 text-end mt-3">
+                    <button class="btn btn-warning me-2 mb-1" data-bs-toggle="modal" data-bs-target="#modalLastMinuteKumite">⚡ Inserisci Atleta Last-Minute</button>
+                    <button class="btn btn-success me-2 mb-1" onclick="salvaStatoKumite()">💾 Salva</button>
+                    <button class="btn btn-secondary mb-1" onclick="window.print()">🖨️ Stampa</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 shadow-sm mb-4">
+            <h6 class="fw-bold mb-2">⚡ Storico Inserimenti Last-Minute:</h6>
+            <div class="d-flex flex-wrap gap-2 last-minute-box" id="containerLastMinuteKumite">
+                <span class="text-muted small align-self-center">Nessun atleta aggiunto all'ultimo minuto.</span>
+            </div>
+        </div>
+
+        <!-- Contenitore stampabile che include intestazione con età/cintura e tabellone -->
+        <div class="print-area">
+            <div id="infoTabelloneHeader" class="alert alert-secondary py-2 mb-3 fw-bold text-center" style="display:none;"></div>
+            <div class="row overflow-auto flex-nowrap py-3 mb-4" id="tabelloneKumiteContainer"></div>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+            <h3 class="text-center mb-4">🥇 Podio Ufficiale Kumite</h3>
+            <div class="row text-center">
+                <div class="col-md-4 mb-3">
+                    <div class="podio-card argento shadow-sm">
+                        <h4>🥈 2° Posto (Argento)</h4>
+                        <div id="kumitePodioArgento" class="fs-5 mt-2">In attesa...</div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="podio-card oro shadow-sm">
+                        <h4>🥇 1° Posto (Oro)</h4>
+                        <div id="kumitePodioOro" class="fs-5 mt-2">In attesa...</div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="podio-card bronzo shadow-sm">
+                        <h4>🥉 3° Posto (Bronzo)</h4>
+                        <div id="kumitePodioBronzo" class="fs-5 mt-2">In attesa...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Inserimento Last Minute -->
+    <div class="modal fade" id="modalLastMinuteKumite" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Aggiungi e Inserisci Atleta Last-Minute</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nome</label>
+                        <input type="text" id="lmNomeKumite" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cognome</label>
+                        <input type="text" id="lmCognomeKumite" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Società</label>
+                        <input type="text" id="lmSocietaKumite" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-warning" onclick="aggiungiAtletaLastMinuteKumite()">Inserisci nel Tabellone</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function caricaLogoMap() {
+            let societaList = JSON.parse(localStorage.getItem('societaList')) || [];
+            let map = {};
+            societaList.forEach(s => map[s.nome] = s.logo);
+            return map;
+        }
+
+        let torneoKumiteData = { atletiList: [], colNames: [] };
+        let draggedElementId = null;
+        let lastMinuteCounter = 0;
+
+        function calcolaEta(dataNascita) {
+            if (!dataNascita) return 0;
+            return new Date().getFullYear() - new Date(dataNascita).getFullYear();
+        }
+
+        function rispecchiaFasciaEta(eta, fascia) {
+            if (!fascia) return true;
+            let [min, max] = fascia.split('-').map(Number);
+            return eta >= min && eta <= max;
+        }
+
+        function corrispondeCategoriaPeso(pesoAtleta, categoriaSelezionata) {
+            let p = parseFloat(pesoAtleta) || 0;
+            if (p === 0) return true; 
+            
+            if (categoriaSelezionata === '40') return p <= 40;
+            if (categoriaSelezionata === '50') return p > 40 && p <= 50;
+            if (categoriaSelezionata === '60') return p > 50 && p <= 60;
+            if (categoriaSelezionata === '70') return p > 60 && p <= 70;
+            if (categoriaSelezionata === 'piu70') return p > 70;
+            return true;
+        }
+
+        function corrispondeCintura(cinturaAtleta, cinturaSelezionata) {
+            if (!cinturaSelezionata) return true;
+            if (!cinturaAtleta) return true;
+            let c = cinturaAtleta.toLowerCase().trim();
+            let sel = cinturaSelezionata.toLowerCase().trim();
+
+            if (sel === 'bianche') return c.includes('bianc');
+            if (sel === 'gialla/arancio') return c.includes('giall') || c.includes('aranc');
+            if (sel === 'verde/blu') return c.includes('verd') || c.includes('blu');
+            if (sel === 'marrone/nera') return c.includes('marron') || c.includes('ner');
+            return true;
+        }
+
+        function inizializzaTorneoKumite() {
+            let fasciaEta = document.getElementById('filtroEtaKumite').value;
+            let filtroSesso = document.getElementById('filtroSessoKumite').value;
+            let filtroPeso = document.getElementById('filtroPesoKumite').value;
+            let filtroCintura = document.getElementById('filtroCinturaKumite').value;
+
+            let infoBox = document.getElementById('infoTabelloneHeader');
+            if (!fasciaEta) {
+                document.getElementById('tabelloneKumiteContainer').innerHTML = '<p class="text-muted text-center">Seleziona prima una fascia di eta.</p>';
+                infoBox.style.display = 'none';
+                return;
+            }
+
+            let selectEtaEl = document.getElementById('filtroEtaKumite');
+            let testoEta = selectEtaEl.options[selectEtaEl.selectedIndex].text;
+            let selectPesoEl = document.getElementById('filtroPesoKumite');
+            let testoPeso = selectPesoEl.options[selectPesoEl.selectedIndex].text;
+            let selectCinturaEl = document.getElementById('filtroCinturaKumite');
+            let testoCintura = selectCinturaEl.value ? selectCinturaEl.options[selectCinturaEl.selectedIndex].text : "Tutte le Cinture";
+            
+            infoBox.style.display = 'block';
+            infoBox.innerHTML = `🥋 Categoria: ${testoEta} | Sesso: ${filtroSesso === 'M' ? 'Maschile' : 'Femminile'} | Peso: ${testoPeso} | Cintura: ${testoCintura}`;
+
+            let atleti = JSON.parse(localStorage.getItem('atleti')) || [];
+            let logoMap = caricaLogoMap();
+
+            let atletiKumite = atleti.filter(a => {
+                let specOk = (a.specialita === 'Kumite' || a.specialita === 'Entrambi');
+                let eta = calcolaEta(a.dataNascita);
+                let sessoOk = (a.sesso === filtroSesso);
+                let pesoOk = corrispondeCategoriaPeso(a.peso, filtroPeso);
+                let cinturaOk = corrispondeCintura(a.cintura, filtroCintura);
+
+                return specOk && sessoOk && rispecchiaFasciaEta(eta, fasciaEta) && pesoOk && cinturaOk;
+            });
+
+            torneoKumiteData.atletiList = atletiKumite;
+
+            document.getElementById('kumitePodioOro').innerText = "In attesa...";
+            document.getElementById('kumitePodioArgento').innerText = "In attesa...";
+            document.getElementById('kumitePodioBronzo').innerText = "In attesa...";
+
+            costruisciTabellone10AtletiKumite('tabelloneKumiteContainer', atletiKumite, logoMap, 'kumite');
+        }
+
+        function abilitaDragAndDrop(elem) {
+            elem.setAttribute('draggable', 'true');
+            elem.addEventListener('dragstart', handleDragStart);
+            elem.addEventListener('dragover', handleDragOver);
+            elem.addEventListener('dragleave', handleDragLeave);
+            elem.addEventListener('drop', handleDrop);
+        }
+
+        function handleDragStart(e) {
+            draggedElementId = this.id;
+            e.dataTransfer.setData('text/plain', this.id);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            if (!draggedElementId || draggedElementId === this.id) return;
+
+            let sourceElem = document.getElementById(draggedElementId);
+            let targetElem = this;
+
+            if (sourceElem && targetElem) {
+                let tempHTML = sourceElem.innerHTML;
+                sourceElem.innerHTML = targetElem.innerHTML;
+                targetElem.innerHTML = tempHTML;
+            }
+        }
+
+        function aggiungiAtletaLastMinuteKumite() {
+            let nome = document.getElementById('lmNomeKumite').value.trim();
+            let cognome = document.getElementById('lmCognomeKumite').value.trim();
+            let societa = document.getElementById('lmSocietaKumite').value.trim();
+
+            if (!nome || !cognome) {
+                alert("Nome e Cognome sono obbligatori!");
+                return;
+            }
+
+            let logoMap = caricaLogoMap();
+            let logo = logoMap[societa] ? `<img src="${logoMap[societa]}" class="logo-societa">` : '';
+
+            let inserito = false;
+            for (let mIdx = 0; mIdx < 8; mIdx++) {
+                let matchDiv = document.getElementById(`kumite_m_0_${mIdx}`);
+                if (matchDiv && matchDiv.innerText.includes('Turno di Riposo')) {
+                    matchDiv.className = "match-card shadow-sm";
+                    matchDiv.innerHTML = `
+                        <div class="small text-muted mb-1 fw-bold">Match ${mIdx + 1} (Last Minute)</div>
+                        <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="kumite_r_0_${mIdx}_0">
+                            <span><span class="badge bg-danger me-1">ROSSO</span><span class="badge bg-warning text-dark me-1">NEW</span>${logo}<strong>${nome} ${cognome}</strong></span>
+                            <div>
+                                <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                <button class="btn btn-sm btn-outline-success py-0" onclick="avanzaKumite('kumite', 0, ${mIdx}, 0, '${nome}', '${cognome}', '${societa}')">Vince ➔</button>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="kumite_r_0_${mIdx}_1">
+                            <span><span class="badge bg-primary me-1">BLU</span><em>In attesa avversario...</em></span>
+                        </div>
+                    `;
+                    inserito = true;
+                    break;
+                }
+            }
+
+            if (!inserito) {
+                let slotsDisponibili = document.querySelectorAll('#tabelloneKumiteContainer .atleta-row');
+                for (let slot of slotsDisponibili) {
+                    if (slot.innerText.includes('Atleta') || slot.innerText.includes('In attesa...')) {
+                        let isRosso = slot.classList.contains('angolo-rosso');
+                        let badgeCol = isRosso ? 'bg-danger' : 'bg-primary';
+                        let angoloNome = isRosso ? 'ROSSO' : 'BLU';
+
+                        slot.innerHTML = `
+                            <span><span class="badge ${badgeCol} me-1">${angoloNome}</span><span class="badge bg-warning text-dark me-1">NEW</span>${logo}<strong>${nome} ${cognome}</strong></span>
+                            <div>
+                                <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                <button class="btn btn-sm btn-outline-success py-0" onclick="this.parentElement.parentElement.classList.add('atleta-vincitore')">Vince ➔</button>
+                            </div>
+                        `;
+                        inserito = true;
+                        break;
+                    }
+                }
+            }
+
+            let container = document.getElementById('containerLastMinuteKumite');
+            if (container.querySelector('span.text-muted')) {
+                container.innerHTML = '';
+            }
+
+            lastMinuteCounter++;
+            let lmId = `lm_kumite_${lastMinuteCounter}`;
+            let elem = document.createElement('div');
+            elem.className = 'd-flex justify-content-between align-items-center atleta-row angolo-rosso border rounded px-2 py-1 bg-white shadow-sm';
+            elem.id = lmId;
+            elem.innerHTML = `<span><span class="badge bg-warning text-dark me-1">NEW</span>${logo}<strong>${nome} ${cognome}</strong> (${societa || 'N/D'})</span>`;
+            container.appendChild(elem);
+
+            document.querySelectorAll('.atleta-row').forEach(abilitaDragAndDrop);
+
+            document.getElementById('lmNomeKumite').value = '';
+            document.getElementById('lmCognomeKumite').value = '';
+            document.getElementById('lmSocietaKumite').value = '';
+
+            let modal = bootstrap.Modal.getInstance(document.getElementById('modalLastMinuteKumite'));
+            modal.hide();
+
+            alert(`Atleta ${nome} ${cognome} inserito automaticamente nel tabellone!`);
+        }
+
+        function costruisciTabellone10AtletiKumite(containerId, atleti, logoMap, prefix) {
+            let container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            let count = atleti.length;
+            if (count === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Nessun atleta trovato in questa categoria di peso, età e cintura.</p>';
+                return;
+            }
+
+            let rounds = [
+                { name: "Round of 16", matches: 8 },
+                { name: "Quarterfinal", matches: 4 },
+                { name: "Semifinal", matches: 2 },
+                { name: "Final", matches: 1 }
+            ];
+            torneoKumiteData.colNames = rounds;
+
+            rounds.forEach((r, rIdx) => {
+                let col = document.createElement('div');
+                col.className = 'col bracket-round';
+                col.innerHTML = `<h5 class="text-center bg-danger text-white p-2 rounded">${r.name}</h5><div id="${prefix}_round_${rIdx}"></div>`;
+                container.appendChild(col);
+            });
+
+            let r0Container = document.getElementById(`${prefix}_round_0`);
+            let html0 = '';
+
+            for (let mIdx = 0; mIdx < 8; mIdx++) {
+                let atletaA = null;
+                let atletaB = null;
+                let numPosA = "";
+                let numPosB = "";
+
+                if (mIdx === 0) {
+                    atletaA = atleti[6] || null;
+                    atletaB = atleti[7] || null;
+                    numPosA = "8";
+                    numPosB = "9";
+                } else if (mIdx === 1) {
+                    atletaA = atleti[8] || null;
+                    atletaB = atleti[9] || null;
+                    numPosA = "7";
+                    numPosB = "10";
+                }
+
+                if (atletaA && atletaB) {
+                    let logoA = logoMap[atletaA.societa] ? `<img src="${logoMap[atletaA.societa]}" class="logo-societa">` : '';
+                    let logoB = logoMap[atletaB.societa] ? `<img src="${logoMap[atletaB.societa]}" class="logo-societa">` : '';
+                    
+                    html0 += `
+                        <div class="match-card shadow-sm" id="${prefix}_m_0_${mIdx}">
+                            <div class="small text-muted mb-1 fw-bold">Match ${mIdx + 1}</div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="${prefix}_r_0_${mIdx}_0">
+                                <span><span class="badge bg-danger me-1">ROSSO</span><span class="badge bg-secondary me-1">${numPosA}</span>${logoA}<strong>${atletaA.nome} ${atletaA.cognome}</strong></span>
+                                <div>
+                                    <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                    <button class="btn btn-sm btn-outline-success py-0" onclick="avanzaKumite('${prefix}', 0, ${mIdx}, 0, '${atletaA.nome}', '${atletaA.cognome}', '${atletaA.societa}')">Vince ➔</button>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="${prefix}_r_0_${mIdx}_1">
+                                <span><span class="badge bg-primary me-1">BLU</span><span class="badge bg-secondary me-1">${numPosB}</span>${logoB}<span>${atletaB.nome} ${atletaB.cognome}</span></span>
+                                <div>
+                                    <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                    <button class="btn btn-sm btn-outline-success py-0" onclick="avanzaKumite('${prefix}', 0, ${mIdx}, 1, '${atletaB.nome}', '${atletaB.cognome}', '${atletaB.societa}')">Vince ➔</button>
+                                </div>
+                            </div>
+                        </div>`;
+                } else {
+                    html0 += `
+                        <div class="match-card shadow-sm text-muted bg-light opacity-50" id="${prefix}_m_0_${mIdx}">
+                            <div class="small mb-1">${mIdx + 1} Round of 16 (Bye)</div>
+                            <div class="small">--- Turno di Riposo ---</div>
+                        </div>`;
+                }
+            }
+            r0Container.innerHTML = html0;
+
+            let r1Container = document.getElementById(`${prefix}_round_1`);
+            let htmlQ = '';
+            
+            let qConfig = [
+                { qNum: 1, posA: "1", atletaA: atleti[0], posB: "W1", labelB: "(W1)" },
+                { qNum: 2, posA: "4", atletaA: atleti[1], posB: "5", atletaB: atleti[2] },
+                { qNum: 3, posA: "2", atletaA: atleti[3], posB: "W2", labelB: "(W2)" },
+                { qNum: 4, posA: "3", atletaA: atleti[4], posB: "6", atletaB: atleti[5] }
+            ];
+
+            qConfig.forEach((q, qIdx) => {
+                let logoA = q.atletaA && logoMap[q.atletaA.societa] ? `<img src="${logoMap[q.atletaA.societa]}" class="logo-societa">` : '';
+                let nomeA = q.atletaA ? `${q.atletaA.nome} ${q.atletaA.cognome}` : `Atleta ${q.posA}`;
+                
+                let logoB = q.atletaB && logoMap[q.atletaB.societa] ? `<img src="${logoMap[q.atletaB.societa]}" class="logo-societa">` : '';
+                let nomeB = q.atletaB ? `${q.atletaB.nome} ${q.atletaB.cognome}` : q.labelB;
+
+                let btnB = q.atletaB ? `<button class="btn btn-sm btn-outline-success py-0" onclick="avanzaKumite('${prefix}', 1, ${qIdx}, 1, '${q.atletaB.nome}', '${q.atletaB.cognome}', '${q.atletaB.societa}')">Vince ➔</button>` : '';
+
+                htmlQ += `
+                    <div class="match-card shadow-sm" id="${prefix}_m_1_${qIdx}">
+                        <div class="small text-muted mb-1 fw-bold">Quarto ${q.qNum}</div>
+                        <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="${prefix}_r_1_${qIdx}_0">
+                            <span><span class="badge bg-danger me-1">ROSSO</span><span class="badge bg-primary me-1">${q.posA}</span>${logoA}<strong>${nomeA}</strong></span>
+                            ${q.atletaA ? `<button class="btn btn-sm btn-outline-success py-0" onclick="avanzaKumite('${prefix}', 1, ${qIdx}, 0, '${q.atletaA.nome}', '${q.atletaA.cognome}', '${q.atletaA.societa}')">Vince ➔</button>` : ''}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="${prefix}_r_1_${qIdx}_1">
+                            <span><span class="badge bg-primary me-1">BLU</span><span class="badge bg-primary me-1">${q.posB}</span>${logoB}<span>${nomeB}</span></span>
+                            <div>
+                                <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                                ${btnB}
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            r1Container.innerHTML = htmlQ;
+
+            ['Semifinal', 'Final'].forEach((roundName, rIdxOffset) => {
+                let actualRIdx = rIdxOffset + 2;
+                let ctn = document.getElementById(`${prefix}_round_${actualRIdx}`);
+                let matchesCount = actualRIdx === 2 ? 2 : 1;
+                let htmlR = '';
+                for (let m = 0; m < matchesCount; m++) {
+                    htmlR += `
+                        <div class="match-card shadow-sm" id="${prefix}_m_${actualRIdx}_${m}">
+                            <div class="small text-muted mb-1 fw-bold">${roundName} ${m+1}</div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-rosso" id="${prefix}_r_${actualRIdx}_${m}_0">
+                                <span><span class="badge bg-danger me-1">ROSSO</span><strong>In attesa...</strong></span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center atleta-row angolo-blu mt-1" id="${prefix}_r_${actualRIdx}_${m}_1">
+                                <span><span class="badge bg-primary me-1">BLU</span><span>In attesa...</span></span>
+                            </div>
+                        </div>`;
+                }
+                ctn.innerHTML = htmlR;
+            });
+
+            document.querySelectorAll('.atleta-row').forEach(abilitaDragAndDrop);
+        }
+
+        function avanzaKumite(prefix, roundIdx, matchIdx, slotIdx, nome, cognome, societa) {
+            document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_0`).classList.remove('atleta-vincitore');
+            document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_1`).classList.remove('atleta-vincitore');
+            document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_${slotIdx}`).classList.add('atleta-vincitore');
+
+            let nextRoundIdx = roundIdx + 1;
+            
+            if (roundIdx === 0) {
+                let targetQIdx = matchIdx === 0 ? 0 : 2;
+                let targetSlot = 1;
+                let slotDiv = document.getElementById(`${prefix}_r_1_${targetQIdx}_${targetSlot}`);
+                let logoMap = caricaLogoMap();
+                let logo = logoMap[societa] ? `<img src="${logoMap[societa]}" class="logo-societa">` : '';
+                if (slotDiv) {
+                    slotDiv.innerHTML = `
+                        <span><span class="badge bg-primary me-1">BLU</span>${logo}<strong>${nome} ${cognome}</strong></span>
+                        <div>
+                            <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                            <button class="btn btn-sm btn-outline-success py-0" onclick="avanzaKumite('${prefix}', 1, ${targetQIdx}, 1, '${nome}', '${cognome}', '${societa}')">Vince ➔</button>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
+            if (nextRoundIdx >= torneoKumiteData.colNames.length) {
+                document.getElementById('kumitePodioOro').innerText = `${nome} ${cognome}`;
+                let perdenteSlot = slotIdx === 0 ? 1 : 0;
+                let elemPerdente = document.getElementById(`${prefix}_r_${roundIdx}_${matchIdx}_${perdenteSlot}`);
+                document.getElementById('kumitePodioArgento').innerText = elemPerdente ? elemPerdente.innerText.replace('ROSSO', '').replace('BLU', '').replace('Vince ➔', '').trim() : '';
+                alert(`🏆 ${nome} ${cognome} ha vinto il torneo di Kumite!`);
+                return;
+            }
+
+            let nextMatchIdx = Math.floor(matchIdx / 2);
+            let nextSlotIdx = matchIdx % 2;
+            let angoloName = nextSlotIdx === 0 ? '<span class="badge bg-danger me-1">ROSSO</span>' : '<span class="badge bg-primary me-1">BLU</span>';
+            let logoMap = caricaLogoMap();
+            let logo = logoMap[societa] ? `<img src="${logoMap[societa]}" class="logo-societa">` : '';
+
+            let slotDiv = document.getElementById(`${prefix}_r_${nextRoundIdx}_${nextMatchIdx}_${nextSlotIdx}`);
+            if (slotDiv) {
+                slotDiv.innerHTML = `
+                    <span>${angoloName}${logo}<strong>${nome} ${cognome}</strong></span>
+                    <div>
+                        <input type="number" class="form-control form-control-sm d-inline-block w-50 text-center" placeholder="Pt">
+                        <button class="btn btn-sm btn-outline-success py-0" onclick="avanzaKumite('${prefix}', ${nextRoundIdx}, ${nextMatchIdx}, ${nextSlotIdx}, '${nome}', '${cognome}', '${societa}')">Vince ➔</button>
+                    </div>
+                `;
+            }
+        }
+
+        function salvaStatoKumite() {
+            localStorage.setItem('tabelloneKumite_salvato', JSON.stringify(document.getElementById('tabelloneKumiteContainer').innerHTML));
+            alert("Salvato correttamente!");
+        }
+    </script>
+</body>
+</html>
