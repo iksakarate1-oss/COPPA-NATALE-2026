@@ -31,7 +31,7 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Nome Evento / Torneo</label>
-                                <input type="text" id="regNomeEvento" class="form-control" placeholder="Es. Yoshukan Cup 2027 - 1ª Giornata" required[cite: 3]>
+                                <input type="text" id="regNomeEvento" class="form-control" value="Coppa Natale 2026" required[cite: 3]>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Locandina Evento</label>
@@ -140,7 +140,6 @@
             let file = input.files[0];
             if (!file) return;
             
-            // Controllo dimensione file consigliato (es. max 1MB per evitare problemi con Firebase Realtime Database)
             if (file.size > 1024 * 1024 * 1.5) {
                 alert("L'immagine è troppo grande! Seleziona un'immagine inferiore a 1.5 MB.");
                 input.value = "";
@@ -267,7 +266,6 @@
             };
 
             if (usaFirebase) {
-                // Inviamo direttamente i dati completi con .set() sul nodo specifico della società
                 database.ref('iscrizioni_pendenti/' + societaId).set({
                     societa: datiSocietaCompleti,
                     atleti: nuoviAtleti
@@ -275,7 +273,6 @@
                     if (error) {
                         alert("Errore durante l'invio su Firebase: " + error.message);
                     } else {
-                        // Aggiorniamo anche il riferimento generale dell'evento
                         database.ref('dettagli_evento').set({
                             nomeEvento: nomeEvento,
                             locandina: locandinaBase64Temp
